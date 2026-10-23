@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f5d3a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Utilidad">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+[hidden] { display: none !important; }
+</style>
+<title>Análisis de Utilidad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: una columna tipo hoja de muestreo; resultado arriba, contadores grandes para el pulgar abajo */
+:root {
+  --bg: #f3f4ef;
+  --surface: #ffffff;
+  --fg: #1d221c;
+  --muted: #646b60;
+  --line: #d9dcd2;
+  --accent: #2f5d3a;
+  --accent-soft: #e2ebdf;
+  --warn: #9a5b00;
+  --warn-soft: #fbefd9;
+  --bad: #a63a2a;
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141713; --surface: #1d211b; --fg: #e8ebe3; --muted: #9aa294; --line: #31372e;
+    --accent: #8cc49a; --accent-soft: #233026; --warn: #e6b45c; --warn-soft: #33291a; --bad: #e8826f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141713; --surface: #1d211b; --fg: #e8ebe3; --muted: #9aa294; --line: #31372e;
+  --accent: #8cc49a; --accent-soft: #233026; --warn: #e6b45c; --warn-soft: #33291a; --bad: #e8826f;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.4;
+  -webkit-tap-highlight-color: transparent;
+}
+.wrap {
+  max-width: 460px;
+  margin: 0 auto;
+  padding-block: 20px 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+header h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.75rem;
+  letter-spacing: 0.01em;
+  margin: 0;
+  text-wrap: balance;
+}
+header p { margin: 2px 0 0; color: var(--muted); font-size: 0.9rem; }
+
+/* Resultado */
+.result {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.result .label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-weight: 600;
+}
+.pct {
+  font-family: var(--font-num);
+  font-weight: 600;
+  font-size: 3.4rem;
+  line-height: 1;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.pct small { font-size: 1.6rem; margin-left: 2px; }
+.pct.empty { color: var(--muted); }
+.meter {
+  height: 8px;
+  background: var(--accent-soft);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.meter span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 0.25s ease;
+}
+.formula {
+  font-family: var(--font-num);
+  font-size: 0.82rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Campos */
+.fields {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+}
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+}
+.row:first-child { border-top: 0; }
+.row.total { background: var(--accent-soft); border-radius: 14px 14px 0 0; }
+.name { min-width: 0; }
+.name label { font-weight: 600; font-size: 1rem; display: block; }
+.name .hint { font-size: 0.8rem; color: var(--muted); font-family: var(--font-num); }
+.ctrl { display: flex; align-items: center; gap: 6px; }
+.ctrl button {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 1.4rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.ctrl button:active { background: var(--accent-soft); }
+.ctrl input {
+  width: 70px;
+  height: 44px;
+  text-align: center;
+  font-family: var(--font-num);
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--fg);
+  padding: 0 4px;
+  -moz-appearance: textfield;
+}
+.ctrl input::-webkit-outer-spin-button,
+.ctrl input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+button:focus-visible, input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Verificación de suma */
+.check {
+  font-size: 0.88rem;
+  padding: 10px 12px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--accent-soft);
+  color: var(--fg);
+}
+.check.warn { background: var(--warn-soft); }
+.check.warn strong { color: var(--warn); }
+.check strong { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.check button {
+  font: inherit;
+  font-weight: 600;
+  border: 1px solid var(--warn);
+  color: var(--warn);
+  background: transparent;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.actions { display: flex; gap: 10px; }
+.actions button {
+  flex: 1;
+  height: 48px;
+  font: inherit;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+}
+#copy { background: var(--accent); color: var(--surface); border: 0; }
+#reset { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+#reset.confirm { border-color: var(--bad); color: var(--bad); }
+
+@media (prefers-reduced-motion: reduce) { .meter span { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Análisis de Utilidad</h1>
+    <p>Cuenta las hojuelas de la muestra y el % se calcula al instante.</p>
+  </header>
+
+  <section class="result" aria-live="polite">
+    <div class="label">% Utilidad</div>
+    <div class="pct" id="pct">89.74<small>%</small></div>
+    <div class="meter"><span id="bar"></span></div>
+    <div class="formula" id="formula"></div>
+  </section>
+
+  <section class="fields">
+    <div class="row total">
+      <div class="name"><label for="total">Total de hojuelas</label><span class="hint">muestra completa</span></div>
+      <div class="ctrl"><button type="button" data-step="-1" data-for="total" aria-label="Restar 1 al total">−</button><input id="total" type="number" inputmode="numeric" min="0" value="117"><button type="button" data-step="1" data-for="total" aria-label="Sumar 1 al total">+</button></div>
+    </div>
+    <div class="row">
+      <div class="name"><label for="u">Útiles (U)</label><span class="hint">vale 100%</span></div>
+      <div class="ctrl"><button type="button" data-step="-1" data-for="u" aria-label="Restar 1 a útiles">−</button><input id="u" type="number" inputmode="numeric" min="0" value="93"><button type="button" data-step="1" data-for="u" aria-label="Sumar 1 a útiles">+</button></div>
+    </div>
+    <div class="row">
+      <div class="name"><label for="p">Punta (P)</label><span class="hint">vale 75%</span></div>
+      <div class="ctrl"><button type="button" data-step="-1" data-for="p" aria-label="Restar 1 a punta">−</button><input id="p" type="number" inputmode="numeric" min="0" value="12"><button type="button" data-step="1" data-for="p" aria-label="Sumar 1 a punta">+</button></div>
+    </div>
+    <div class="row">
+      <div class="name"><label for="m">Media (M)</label><span class="hint">vale 50%</span></div>
+      <div class="ctrl"><button type="button" data-step="-1" data-for="m" aria-label="Restar 1 a media">−</button><input id="m" type="number" inputmode="numeric" min="0" value="6"><button type="button" data-step="1" data-for="m" aria-label="Sumar 1 a media">+</button></div>
+    </div>
+    <div class="row">
+      <div class="name"><label for="t">Totales (T)</label><span class="hint">vale 0%</span></div>
+      <div class="ctrl"><button type="button" data-step="-1" data-for="t" aria-label="Restar 1 a totales">−</button><input id="t" type="number" inputmode="numeric" min="0" value="6"><button type="button" data-step="1" data-for="t" aria-label="Sumar 1 a totales">+</button></div>
+    </div>
+  </section>
+
+  <div class="check" id="check"></div>
+
+  <div class="actions">
+    <button type="button" id="reset">Nueva muestra</button>
+    <button type="button" id="copy">Copiar resultado</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var ids = ["total", "u", "p", "m", "t"];
+  var el = {};
+  ids.forEach(function (id) { el[id] = document.getElementById(id); });
+  var pctEl = document.getElementById("pct");
+  var bar = document.getElementById("bar");
+  var formula = document.getElementById("formula");
+  var check = document.getElementById("check");
+  var KEY = "utilidad-hojuelas-v1";
+
+  function num(id) {
+    var v = parseFloat(el[id].value);
+    return isFinite(v) && v > 0 ? v : 0;
+  }
+
+  // Misma fórmula que la celda J20 del Excel:
+  // ((U + 0.75*P + 0.5*M) / Total) * 100
+  function utilidad(total, u, p, m) {
+    if (!total) return null;
+    return ((u + 0.75 * p + 0.5 * m) / total) * 100;
+  }
+
+  function fmt(n) { return (Math.round(n * 100) / 100).toFixed(2); }
+  function trim(n) { return String(Math.round(n * 100) / 100); }
+
+  var lastPct = null;
+
+  function render() {
+    var total = num("total"), u = num("u"), p = num("p"), m = num("m"), t = num("t");
+    var pct = utilidad(total, u, p, m);
+    lastPct = pct;
+    if (pct === null) {
+      pctEl.innerHTML = "—";
+      pctEl.classList.add("empty");
+      bar.style.transform = "scaleX(0)";
+      formula.textContent = "Escribe el total de hojuelas para calcular.";
+    } else {
+      pctEl.innerHTML = fmt(pct) + "<small>%</small>";
+      pctEl.classList.remove("empty");
+      bar.style.transform = "scaleX(" + Math.max(0, Math.min(100, pct)) / 100 + ")";
+      var pts = u + 0.75 * p + 0.5 * m;
+      formula.textContent = "(" + u + " + 0.75×" + p + " + 0.5×" + m + ") ÷ " + total + " = " + trim(pts) + " ÷ " + total;
+    }
+
+    var sum = u + p + m + t;
+    check.innerHTML = "";
+    if (sum === total) {
+      check.className = "check";
+      check.innerHTML = "U + P + M + T = <strong>" + sum + "</strong> coincide con el total";
+    } else {
+      check.className = "check warn";
+      var span = document.createElement("span");
+      span.innerHTML = "U + P + M + T = <strong>" + sum + "</strong>, el total dice <strong>" + total + "</strong>";
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.id = "use-sum";
+      btn.textContent = "Usar " + sum + " como total";
+      btn.addEventListener("click", function () { el.total.value = sum; update(); });
+      check.appendChild(span);
+      check.appendChild(btn);
+    }
+  }
+
+  function save() {
+    try {
+      var data = {};
+      ids.forEach(function (id) { data[id] = el[id].value; });
+      localStorage.setItem(KEY, JSON.stringify(data));
+    } catch (e) {}
+  }
+
+  function load() {
+    try {
+      var data = JSON.parse(localStorage.getItem(KEY) || "null");
+      if (data) ids.forEach(function (id) { if (data[id] != null) el[id].value = data[id]; });
+    } catch (e) {}
+  }
+
+  function update() { render(); save(); }
+
+  ids.forEach(function (id) { el[id].addEventListener("input", update); });
+  ids.forEach(function (id) {
+    el[id].addEventListener("focus", function () { this.select(); });
+  });
+
+  document.querySelectorAll("[data-step]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var input = el[b.getAttribute("data-for")];
+      var v = parseInt(input.value, 10) || 0;
+      input.value = Math.max(0, v + parseInt(b.getAttribute("data-step"), 10));
+      update();
+    });
+  });
+
+  var resetBtn = document.getElementById("reset");
+  var resetTimer = null;
+  resetBtn.addEventListener("click", function () {
+    if (!resetBtn.classList.contains("confirm")) {
+      resetBtn.classList.add("confirm");
+      resetBtn.textContent = "¿Borrar todo? Toca otra vez";
+      resetTimer = setTimeout(function () {
+        resetBtn.classList.remove("confirm");
+        resetBtn.textContent = "Nueva muestra";
+      }, 3000);
+      return;
+    }
+    clearTimeout(resetTimer);
+    resetBtn.classList.remove("confirm");
+    resetBtn.textContent = "Nueva muestra";
+    ids.forEach(function (id) { el[id].value = 0; });
+    update();
+  });
+
+  var copyBtn = document.getElementById("copy");
+  copyBtn.addEventListener("click", function () {
+    var text = "Total: " + num("total") + "\nÚtiles (U): " + num("u") + "\nPunta (P): " + num("p") +
+      "\nMedia (M): " + num("m") + "\nTotales (T): " + num("t") +
+      "\n% Utilidad: " + (lastPct === null ? "—" : fmt(lastPct) + "%");
+    function done(msg) {
+      copyBtn.textContent = msg;
+      setTimeout(function () { copyBtn.textContent = "Copiar resultado"; }, 1600);
+    }
+    try {
+      navigator.clipboard.writeText(text).then(function () { done("Copiado"); }, function () { done("No se pudo copiar"); });
+    } catch (e) { done("No se pudo copiar"); }
+  });
+
+  load();
+  render();
+})();
+</script>
+</body>
+</html>
