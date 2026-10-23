@@ -6,6 +6,9 @@
 <meta name="theme-color" content="#2f5d3a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Utilidad">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
 <style>
 :root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 body { margin: 0; }
@@ -28,6 +31,7 @@ body { margin: 0; }
   --warn: #9a5b00;
   --warn-soft: #fbefd9;
   --bad: #a63a2a;
+  --logo-filter: none;
   --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
   --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -36,12 +40,14 @@ body { margin: 0; }
   :root:not([data-theme="light"]) {
     --bg: #141713; --surface: #1d211b; --fg: #e8ebe3; --muted: #9aa294; --line: #31372e;
     --accent: #8cc49a; --accent-soft: #233026; --warn: #e6b45c; --warn-soft: #33291a; --bad: #e8826f;
+    --logo-filter: invert(1);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #141713; --surface: #1d211b; --fg: #e8ebe3; --muted: #9aa294; --line: #31372e;
   --accent: #8cc49a; --accent-soft: #233026; --warn: #e6b45c; --warn-soft: #33291a; --bad: #e8826f;
+  --logo-filter: invert(1);
   color-scheme: dark;
 }
 
@@ -65,6 +71,14 @@ body {
   gap: 16px;
 }
 
+header .logo {
+  display: block;
+  width: 190px;
+  max-width: 60%;
+  height: auto;
+  margin-bottom: 14px;
+  filter: var(--logo-filter);
+}
 header h1 {
   font-family: var(--font-display);
   font-weight: 700;
@@ -184,6 +198,40 @@ button:focus-visible, input:focus-visible {
   outline-offset: 2px;
 }
 
+/* Datos de la muestra */
+.info {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.info .full { grid-column: 1 / -1; }
+.info .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.info label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-weight: 600;
+}
+.info input {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  font: inherit;
+  font-weight: 500;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 0 10px;
+}
+.info input[type="text"] { text-transform: uppercase; }
+.info input::placeholder { color: var(--muted); opacity: 0.7; text-transform: none; }
+
 /* Verificación de suma */
 .check {
   font-size: 0.88rem;
@@ -231,9 +279,25 @@ button:focus-visible, input:focus-visible {
 
 <div class="wrap">
   <header>
+    <img class="logo" src="logo.png" alt="Buensol División Agrícola" width="1137" height="366">
     <h1>Análisis de Utilidad</h1>
     <p>Cuenta las hojuelas de la muestra y el % se calcula al instante.</p>
   </header>
+
+  <section class="info" aria-label="Datos de la muestra">
+    <div class="field full">
+      <label for="proveedor">Proveedor</label>
+      <input id="proveedor" type="text" autocapitalize="characters" autocomplete="off" placeholder="Ej. AGRO COMERCIAL YORI">
+    </div>
+    <div class="field">
+      <label for="bodega">Bodega</label>
+      <input id="bodega" type="text" autocapitalize="characters" autocomplete="off" placeholder="Ej. AGROFON 5">
+    </div>
+    <div class="field">
+      <label for="fecha">Fecha</label>
+      <input id="fecha" type="date">
+    </div>
+  </section>
 
   <section class="result" aria-live="polite">
     <div class="label">% Utilidad</div>
@@ -276,8 +340,11 @@ button:focus-visible, input:focus-visible {
 <script>
 (function () {
   var ids = ["total", "u", "p", "m", "t"];
+  // La fecha no se guarda: siempre arranca en el día actual
+  var infoIds = ["proveedor", "bodega"];
   var el = {};
-  ids.forEach(function (id) { el[id] = document.getElementById(id); });
+  ids.concat(infoIds, ["fecha"]).forEach(function (id) { el[id] = document.getElementById(id); });
+  var fechaManual = false;
   var pctEl = document.getElementById("pct");
   var bar = document.getElementById("bar");
   var formula = document.getElementById("formula");
@@ -298,6 +365,17 @@ button:focus-visible, input:focus-visible {
 
   function fmt(n) { return (Math.round(n * 100) / 100).toFixed(2); }
   function trim(n) { return String(Math.round(n * 100) / 100); }
+
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function today() {
+    var d = new Date();
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  }
+  // "2026-08-08" -> "08/08/2026"
+  function fechaTexto(v) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || "");
+    return m ? m[3] + "/" + m[2] + "/" + m[1] : "";
+  }
 
   var lastPct = null;
 
@@ -340,7 +418,7 @@ button:focus-visible, input:focus-visible {
   function save() {
     try {
       var data = {};
-      ids.forEach(function (id) { data[id] = el[id].value; });
+      ids.concat(infoIds).forEach(function (id) { data[id] = el[id].value; });
       localStorage.setItem(KEY, JSON.stringify(data));
     } catch (e) {}
   }
@@ -348,13 +426,20 @@ button:focus-visible, input:focus-visible {
   function load() {
     try {
       var data = JSON.parse(localStorage.getItem(KEY) || "null");
-      if (data) ids.forEach(function (id) { if (data[id] != null) el[id].value = data[id]; });
+      if (data) ids.concat(infoIds).forEach(function (id) { if (data[id] != null) el[id].value = data[id]; });
     } catch (e) {}
+    el.fecha.value = today();
   }
 
   function update() { render(); save(); }
 
   ids.forEach(function (id) { el[id].addEventListener("input", update); });
+  infoIds.forEach(function (id) { el[id].addEventListener("input", save); });
+  el.fecha.addEventListener("input", function () { fechaManual = el.fecha.value !== today(); });
+  // Si la app se queda abierta en el teléfono y pasa la medianoche, avanza la fecha sola
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && !fechaManual) el.fecha.value = today();
+  });
   ids.forEach(function (id) {
     el[id].addEventListener("focus", function () { this.select(); });
   });
@@ -373,7 +458,7 @@ button:focus-visible, input:focus-visible {
   resetBtn.addEventListener("click", function () {
     if (!resetBtn.classList.contains("confirm")) {
       resetBtn.classList.add("confirm");
-      resetBtn.textContent = "¿Borrar todo? Toca otra vez";
+      resetBtn.textContent = "¿Borrar conteo? Toca otra vez";
       resetTimer = setTimeout(function () {
         resetBtn.classList.remove("confirm");
         resetBtn.textContent = "Nueva muestra";
@@ -383,13 +468,22 @@ button:focus-visible, input:focus-visible {
     clearTimeout(resetTimer);
     resetBtn.classList.remove("confirm");
     resetBtn.textContent = "Nueva muestra";
+    // Proveedor y bodega se quedan: normalmente se analizan varias muestras del mismo lote
     ids.forEach(function (id) { el[id].value = 0; });
+    el.fecha.value = today();
+    fechaManual = false;
     update();
   });
 
   var copyBtn = document.getElementById("copy");
   copyBtn.addEventListener("click", function () {
-    var text = "Total: " + num("total") + "\nÚtiles (U): " + num("u") + "\nPunta (P): " + num("p") +
+    var info = [
+      ["Proveedor", el.proveedor.value.trim().toUpperCase()],
+      ["Bodega", el.bodega.value.trim().toUpperCase()],
+      ["Fecha", fechaTexto(el.fecha.value)]
+    ].filter(function (r) { return r[1]; }).map(function (r) { return r[0] + ": " + r[1]; });
+    var text = (info.length ? info.join("\n") + "\n\n" : "") +
+      "Total de hojuelas: " + num("total") + "\nÚtiles (U): " + num("u") + "\nPunta (P): " + num("p") +
       "\nMedia (M): " + num("m") + "\nTotales (T): " + num("t") +
       "\n% Utilidad: " + (lastPct === null ? "—" : fmt(lastPct) + "%");
     function done(msg) {
