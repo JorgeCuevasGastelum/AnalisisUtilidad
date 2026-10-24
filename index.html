@@ -230,8 +230,6 @@ button:focus-visible, input:focus-visible {
   padding: 0 10px;
 }
 .info input[type="text"] { text-transform: uppercase; }
-.info input::placeholder { color: var(--muted); opacity: 0.7; text-transform: none; }
-
 /* Verificación de suma */
 .check {
   font-size: 0.88rem;
@@ -287,11 +285,11 @@ button:focus-visible, input:focus-visible {
   <section class="info" aria-label="Datos de la muestra">
     <div class="field full">
       <label for="proveedor">Proveedor</label>
-      <input id="proveedor" type="text" autocapitalize="characters" autocomplete="off" placeholder="Ej. AGRO COMERCIAL YORI">
+      <input id="proveedor" type="text" autocapitalize="characters" autocomplete="off">
     </div>
     <div class="field">
       <label for="bodega">Bodega</label>
-      <input id="bodega" type="text" autocapitalize="characters" autocomplete="off" placeholder="Ej. AGROFON 5">
+      <input id="bodega" type="text" autocapitalize="characters" autocomplete="off">
     </div>
     <div class="field">
       <label for="fecha">Fecha</label>
